@@ -6,8 +6,6 @@
            (discord4j.rest.util Image Image$Format)
            (discord4j.core.spec UserEditSpec)))
 
-(def state (atom {}))
-
 (defmacro as-function [f & args]
   `(reify java.util.function.Function
      (apply [this arg#]
@@ -38,11 +36,10 @@
   (as-predicate (fn [message] (if (.equals match (.getContent message)) java.lang.Boolean/TRUE java.lang.Boolean/FALSE))))
 
 (defn gateway-edit-user [^GatewayDiscordClient gateway image-path format nickname]
-  (.edit gateway (as-consumer (fn [userEditSpec] (.. userEditSpec (setAvatar (Image/ofRaw (file->bytes image-path) format)) (setUsername nickname) (asRequest))))))
+  (.edit gateway (as-consumer (fn [^UserEditSpec userEditSpec] (.. userEditSpec (setAvatar (Image/ofRaw (file->bytes image-path) format)) (setUsername nickname) (asRequest))))))
 
-(defn set-bot-profile [image-path format nickname]
-  (let [^DiscordClient client (:client @state)]
-    (.. client (withGateway (as-function gateway-edit-user image-path format nickname)))))
+(defn set-bot-profile [^DiscordClient client image-path format nickname]
+  (.. client (withGateway (as-function gateway-edit-user image-path format nickname))))
 
 (defn handle-message [message]
   (let [channelMono (.getChannel message)]
@@ -75,8 +72,3 @@
      (let [message (.on gateway MessageCreateEvent (dispatch-message))
            disconnect (.. gateway (onDisconnect) (doOnTerminate (as-runnable #(print "Disconnected!"))))]
        (Mono/when [message disconnect])))))
-
-(defn start-bot! [token & intents]
-  (let [client (. DiscordClient (create token))]
-    (swap! state assoc :client client)
-    (.. client (withGateway (register-listeners)) (block))))

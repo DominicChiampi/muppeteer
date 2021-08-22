@@ -32,6 +32,9 @@
     (io/copy in out)
     (.toByteArray out)))
 
+(defn create-client [token]
+  (. DiscordClient (create token)))
+
 (defn message-filter [match]
   (as-predicate (fn [message] (if (.equals match (.getContent message)) java.lang.Boolean/TRUE java.lang.Boolean/FALSE))))
 
@@ -66,9 +69,12 @@
          (flatMap (as-function handle-message))
          (doOnError (as-consumer (fn [error] (println error))))))))
 
-(defn register-listeners []
+(defn message-pump []
   (as-function
    (fn [gateway]
      (let [message (.on gateway MessageCreateEvent (dispatch-message))
            disconnect (.. gateway (onDisconnect) (doOnTerminate (as-runnable #(print "Disconnected!"))))]
        (Mono/when [message disconnect])))))
+
+(defn attach-message-pump [client]
+  (.. client (withGateway (message-pump)) (block)))

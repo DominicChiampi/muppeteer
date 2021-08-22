@@ -45,7 +45,7 @@
 (defn set-bot-profile [^DiscordClient client image-path format nickname]
   (.. client (withGateway (as-function gateway-edit-user image-path format nickname))))
 
-(defn handle-message [message]
+(defn MessageMono->message [message-handler message]
   (let [channelMono (.getChannel message)]
     (case (.getContent message)
       "!ping" (.. channelMono
@@ -62,21 +62,21 @@
       (.. channelMono
           (flatMap (as-function (fn [channel] (Mono/just message))))))))
 
-(defn dispatch-message []
+(defn MessageMono->MessageEvent [message-handler]
   (as-function
    (fn [event]
      (.. Mono
          (just (.getMessage event))
-         (flatMap (as-function handle-message))
+         (flatMap (as-function (partial MessageMono->message message-handler)))
          (doOnError (as-consumer (fn [error] (println error))))))))
 
-(defn message-pump []
+(defn gateway->MessageMono [message-handler]
   (as-function
    (fn [gateway]
-     (let [message (.on gateway MessageCreateEvent (dispatch-message))
+     (let [message (.on gateway MessageCreateEvent (MessageMono->MessageEvent message-handler))
            disconnect (.. gateway (onDisconnect) (doOnTerminate (as-runnable #(print "Disconnected!"))))]
        (Mono/when [message disconnect])))))
 
-(defn attach-message-pump [client chan]
-  (.. client (withGateway (message-pump)) (block))
-  (>!! chan "terminate"))
+(defn listen! [client term-chan message-handler]
+  (.. client (withGateway (gateway->MessageMono message-handler)) (block))
+  (>!! term-chan "terminate"))

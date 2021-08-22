@@ -2,8 +2,9 @@
   (:require [clojure.edn :as edn]
             [clojurewerkz.meltdown.reactor :as mr]
             [clojurewerkz.meltdown.selectors :refer [match-all $]]
+            [clojurewerkz.meltdown.streams :as ms :refer [create consume accept map*]]
             [clojure.pprint :refer [pprint]]
-            [muppeteer.bot :refer [create-client attach-message-pump]]
+            [muppeteer.bot :refer [create-client listen!]]
             [clojure.core.async :refer [chan <!!]]))
 
 (defonce config (edn/read-string (slurp "config.edn")))
@@ -29,12 +30,12 @@
    (let [client (create-client token)
          terminate (chan)]
      (swap! state assoc bot {:client client :terminate-chan terminate})
-     (attach-message-pump client terminate)))
+     (listen! client terminate (fn []))))
 
   ([bot token terminate-chan]
    (let [client (create-client token)]
      (swap! state assoc bot {:client client :terminate-chan terminate-chan})
-     (attach-message-pump client terminate-chan))))
+     (listen! client terminate-chan (fn [])))))
 
 (defn start-bot-sub [event]
   (let [bot (get-in event [:data :bot])

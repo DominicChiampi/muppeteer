@@ -67,7 +67,8 @@
    (fn [event]
      (.. Mono
          (just (.getMessage event))
-         (flatMap (as-function (partial MessageMono->message message-handler)))
+         (flatMap (as-function (fn [message] (message-handler (.getContent message))
+                                 (.. (.getChannel message) (flatMap (as-function (fn [channel] (Mono/just message))))))))
          (doOnError (as-consumer (fn [error] (println error))))))))
 
 (defn gateway->MessageMono [message-handler]

@@ -1,5 +1,6 @@
 (ns muppeteer.bot
-  (:require [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [clojure.core.async :refer [>!!]])
   (:import (reactor.core.publisher Mono)
            (discord4j.core.event.domain.message MessageCreateEvent)
            (discord4j.core DiscordClient GatewayDiscordClient)
@@ -76,5 +77,6 @@
            disconnect (.. gateway (onDisconnect) (doOnTerminate (as-runnable #(print "Disconnected!"))))]
        (Mono/when [message disconnect])))))
 
-(defn attach-message-pump [client]
-  (.. client (withGateway (message-pump)) (block)))
+(defn attach-message-pump [client chan]
+  (.. client (withGateway (message-pump)) (block))
+  (>!! chan "terminate"))

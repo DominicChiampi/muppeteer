@@ -4,12 +4,22 @@
             [clojurewerkz.meltdown.selectors :refer [match-all $]]
             [clojurewerkz.meltdown.streams :as ms :refer [create consume accept filter*]]
             [clojure.pprint :refer [pprint]]
-            [muppeteer.bot :refer [create-client listen!]]
-            [clojure.core.async :refer [chan <!!]]))
+            [muppeteer.bot :refer [create-client listen! start-main]]
+            [clojure.core.async :refer [chan <! go-loop mult tap]])
+  (:import (reactor.core.publisher Mono)
+           (discord4j.core.event.domain.message MessageCreateEvent)
+           (discord4j.core DiscordClient GatewayDiscordClient DiscordClientBuilder)))
+
+(defmacro as-function [f & args]
+  `(reify java.util.function.Function
+     (apply [this arg#]
+       (~f arg# ~@args))))
 
 (defonce config (edn/read-string (slurp "config.edn")))
 
 (defonce state (atom {}))
+
+(defn init-event-pump! [main-in])
 
 (defn init-reactor! []
   (let [r (mr/create :dispatcher-type :thread-pool :event-routing-strategy :broadcast)
@@ -61,9 +71,12 @@
     (mr/on r ($ :message) (fn [message] (println message)))))
 
 (defn -main [& args]
-  (let [main-terminate (chan)]
-    (init-reactor!)
-    (init-subscribers)
-    (notify :start-bot {:bot :main :terminate-chan main-terminate :listen main-listen})
-    ;; (notify :debug-state {})
-    (<!! main-terminate)))
+  (let [main-token (get-in config [:main :token])
+        ^GatewayDiscordClient main-client (create-client main-token)
+        messages (chan 100)
+        bus (mult messages)
+        print-messages (chan)]
+    (tap bus print-messages)
+    (go-loop [] (println (<! print-messages)) (recur))
+    (start-main main-client messages)
+    (.. main-client (onDisconnect) (block))))

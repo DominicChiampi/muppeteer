@@ -5,8 +5,9 @@
   (:import (reactor.core.publisher Mono)
            (discord4j.core.event.domain.message MessageCreateEvent)
            (discord4j.core DiscordClient GatewayDiscordClient DiscordClientBuilder)
+           (discord4j.core.object.entity.channel TextChannel)
            (discord4j.rest.util Image Image$Format)
-           (discord4j.core.spec UserEditSpec)))
+           (discord4j.core.spec UserEditSpec MessageCreateSpec)))
 
 (defmacro as-function [f & args]
   `(reify java.util.function.Function
@@ -39,8 +40,19 @@
         guild (.orElse (.getGuildId message) 0)
         channel (.getChannelId message)
         content (.getContent message)]
-    {:event :message
+    {:type :message
      :data {:guild guild :channel channel :content content}}))
+
+(defn build-message [spec content]
+  (.. spec
+      (setContent content)))
+
+(defn send-message [^GatewayDiscordClient client channel-snowflake content]
+  (let [channel (.block (.getChannelById client channel-snowflake))
+        createMessageArg (if (instance? TextChannel channel)
+                           content
+                           (as-consumer (fn [spec] (build-message spec content))))]
+    (.. channel (createMessage createMessageArg) (block))))
 
 (defn create-client ^GatewayDiscordClient [token]
   (.. DiscordClientBuilder (create token) (build) (login) (block)))
@@ -55,11 +67,11 @@
 (defn message-filter [match]
   (as-predicate (fn [message] (if (.equals match (.getContent message)) java.lang.Boolean/TRUE java.lang.Boolean/FALSE))))
 
-(defn gateway-edit-user [^GatewayDiscordClient gateway image-path format nickname]
-  (.edit gateway (as-consumer (fn [^UserEditSpec userEditSpec] (.. userEditSpec (setAvatar (Image/ofRaw (file->bytes image-path) format)) (setUsername nickname) (asRequest))))))
+(defn set-bot-profile [^GatewayDiscordClient gateway image-path format nickname]
+  (.. gateway (edit (as-consumer (fn [^UserEditSpec userEditSpec] (.. userEditSpec (setAvatar (Image/ofRaw (file->bytes image-path) format)) (setUsername nickname) (asRequest))))) (block)))
 
-(defn set-bot-profile [^DiscordClient client image-path format nickname]
-  (.. client (withGateway (as-function gateway-edit-user image-path format nickname))))
+(defn set-bot-profile-old [^DiscordClient client image-path format nickname]
+  (.. client (withGateway (as-function set-bot-profile image-path format nickname))))
 
 (defn MessageMono->message [message-handler message]
   (let [channelMono (.getChannel message)]

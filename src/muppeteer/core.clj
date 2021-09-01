@@ -1,14 +1,18 @@
 (ns muppeteer.core
   (:require [clojure.edn :as edn]
-            [muppeteer.bot :refer [create-client start-main send-message set-bot-profile set-bot-nickname set-bot-avatar]]
+            [muppeteer.bot :refer [create-client! start-main send-message set-bot-profile set-bot-nickname set-bot-avatar]]
             [clojure.core.async :refer [chan <! go-loop mult tap sliding-buffer]])
   (:import (discord4j.core GatewayDiscordClient)
            (discord4j.rest.util Image$Format)))
 
 (defonce config (edn/read-string (slurp "config.edn")))
+(defonce bot-pool (atom {}))
 
-(defn sliding-buffered-channel [buff]
-  (chan (sliding-buffer buff)))
+(defn sliding-buffered-channel []
+  (chan (sliding-buffer (:chanbufflen config))))
+
+(defn init-bot-pool! []
+  (reset! bot-pool (reduce (fn [pool name] (assoc pool name {:client (create-client! (get-in config [:bot name :token])) :ready? true})) {} [:one :two :three])))
 
 (defn handle-main-messages [client {:keys [guild channel content]}]
   (when (= content "!ping") (send-message client channel "!pong"))
@@ -27,11 +31,12 @@
     :message (handle-main-messages client (:data event))))
 
 (defn -main [& args]
-  (let [main-token (get-in config [:main :token])
-        ^GatewayDiscordClient main-client (create-client main-token)
-        events (sliding-buffered-channel 100)
+  (let [main-token (get-in config [:bot :main :token])
+        ^GatewayDiscordClient main-client (create-client! main-token)
+        events (sliding-buffered-channel)
         bus (mult events)]
-    (go-loop [] (println (<! (tap bus (sliding-buffered-channel 100)))) (recur))
-    (go-loop [] (handle-main-events main-client (<! (tap bus (sliding-buffered-channel 100)))) (recur))
+    (init-bot-pool!)
+    (go-loop [] (println (<! (tap bus (sliding-buffered-channel)))) (recur))
+    (go-loop [] (handle-main-events main-client (<! (tap bus (sliding-buffered-channel)))) (recur))
     (start-main main-client events)
     (.. main-client (onDisconnect) (block))))

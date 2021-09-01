@@ -37,7 +37,7 @@
                            (as-consumer (fn [spec] (build-message spec content))))]
     (.. channel (createMessage createMessageArg) (block))))
 
-(defn create-client ^GatewayDiscordClient [token]
+(defn create-client! ^GatewayDiscordClient [token]
   (.. DiscordClientBuilder (create token) (build) (login) (block)))
 
 (defn start-main [client msg-chan]

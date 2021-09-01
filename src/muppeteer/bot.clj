@@ -49,3 +49,13 @@
 
 (defn set-bot-profile [^GatewayDiscordClient gateway image-path format nickname]
   (.. gateway (edit (as-consumer (fn [^UserEditSpec userEditSpec] (.. userEditSpec (setAvatar (Image/ofRaw (file->bytes image-path) format)) (setUsername nickname) (asRequest))))) (block)))
+
+(defn set-bot-avatar [^GatewayDiscordClient gateway image-path format]
+  (.. gateway (edit (as-consumer (fn [^UserEditSpec userEditSpec] (.. userEditSpec (setAvatar (Image/ofRaw (file->bytes image-path) format)) (asRequest))))) (block)))
+
+(defn guild-by-id [client guild-id]
+  (.block (.getGuildById client guild-id)))
+
+(defn set-bot-nickname [client guild-id nickname]
+  (let [guild (guild-by-id client guild-id)]
+    (.. guild (changeSelfNickname nickname) (block))))

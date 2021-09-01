@@ -1,6 +1,6 @@
 (ns muppeteer.core
   (:require [clojure.edn :as edn]
-            [muppeteer.bot :refer [create-client start-main send-message set-bot-profile]]
+            [muppeteer.bot :refer [create-client start-main send-message set-bot-profile set-bot-nickname set-bot-avatar]]
             [clojure.core.async :refer [chan <! go-loop mult tap sliding-buffer]])
   (:import (discord4j.core GatewayDiscordClient)
            (discord4j.rest.util Image$Format)))
@@ -15,8 +15,12 @@
   (when (= content "!texas") (set-bot-profile client "./resources/texas.png" Image$Format/PNG "Senator McConaughey")
         (send-message client channel "all right, all right, all right"))
   (when (= content "!science") (set-bot-profile client "./resources/BunsenHoneydew.jpg" Image$Format/JPEG "TestMuppet"))
-  (when (= content "!yipyips") (set-bot-profile client "./resources/yipyips.jpg" Image$Format/JPEG "Yip Yips")
-        (send-message client channel "Yip-yip-yip-yip... Uh-huh")))
+  (when (= content "!yipyips")
+    (set-bot-avatar client "./resources/yipyips.jpg" Image$Format/JPEG)
+    (set-bot-nickname client guild "Yip Yips")
+    (send-message client channel "Yip-yip-yip-yip... Uh-huh"))
+  (when (= content "!test") (set-bot-nickname client guild "TestierMuppet")
+        (send-message client channel "Science has left me a sad and lonely man")))
 
 (defn handle-main-events [client event]
   (case (:type event)

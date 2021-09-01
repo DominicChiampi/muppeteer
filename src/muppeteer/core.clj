@@ -34,9 +34,9 @@
   (let [main-token (get-in config [:bot :main :token])
         ^GatewayDiscordClient main-client (create-client! main-token)
         events (sliding-buffered-channel)
-        bus (mult events)]
+        tap-mult (fn [] (tap (mult events) (sliding-buffered-channel)))]
     (init-bot-pool!)
-    (go-loop [] (println (<! (tap bus (sliding-buffered-channel)))) (recur))
-    (go-loop [] (handle-main-events main-client (<! (tap bus (sliding-buffered-channel)))) (recur))
+    (go-loop [] (println (<! (tap-mult))) (recur))
+    (go-loop [] (handle-main-events main-client (<! (tap-mult))) (recur))
     (start-main main-client events)
     (.. main-client (onDisconnect) (block))))

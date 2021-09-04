@@ -1,4 +1,4 @@
-FROM clojure:latest
+FROM docker.io/library/clojure:latest
 
 RUN apt-get update
 
